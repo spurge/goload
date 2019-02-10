@@ -22,7 +22,7 @@ var (
 	)
 	ConcurrencyParamError     = ErrorCounter.WithLabelValues("concurrency_param")
 	SleepParamError           = ErrorCounter.WithLabelValues("sleep_param")
-	RequestFileError          = ErrorCounter.WithLabelValues("request_file")
+	TargetsFileError          = ErrorCounter.WithLabelValues("targets_file")
 	ParseTemplateError        = ErrorCounter.WithLabelValues("template_parse")
 	ExecuteTemplateError      = ErrorCounter.WithLabelValues("template_execute")
 	MissingTemplateEntryError = ErrorCounter.WithLabelValues("template_missing_entry")
@@ -33,7 +33,7 @@ var (
 		},
 		[]string{"param"},
 	)
-	RequestParamLength    = ParamGauge.WithLabelValues("request_length")
+	TargetsParamLength    = ParamGauge.WithLabelValues("targets_length")
 	ConcurrencyParamValue = ParamGauge.WithLabelValues("concurrency")
 	SleepParamValue       = ParamGauge.WithLabelValues("sleep")
 	RequestLatencySummary = prometheus.NewSummaryVec(
@@ -94,7 +94,7 @@ func main() {
 		log.Printf("SLEEP environmental variable not set: %s", err)
 	}
 
-	filename := os.Getenv("REQUESTS")
+	filename := os.Getenv("TARGETS")
 
 	go InitiateRequests(int(concurrency), time.Duration(sleep), filename)
 
@@ -106,13 +106,13 @@ func InitiateRequests(concurrency int, sleep time.Duration, filename string) {
 	requests, err := LoadRequests(filename)
 
 	if err != nil {
-		RequestFileError.Inc()
-		log.Printf("Error reading request file: %s", err)
+		TargetsFileError.Inc()
+		log.Printf("Error reading targets file: %s", err)
 	}
 
 	ConcurrencyParamValue.Set(float64(concurrency))
 	SleepParamValue.Set(float64(sleep))
-	RequestParamLength.Set(float64(len(requests)))
+	TargetsParamLength.Set(float64(len(requests)))
 
 	for _, r := range requests {
 		for s := 1; s < 6; s++ {

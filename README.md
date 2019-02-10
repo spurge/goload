@@ -12,7 +12,7 @@ Environment varables
 * `PORT` the port to listen on, default is `8100`
 * `CONCURRENCY` the number of concurrent workers, doing requests against your targets, default is `0`
 * `SLEEP` the time to sleep in seconds before running through your targets again, default is `1`
-* `REQUESTS` the path to your targets defined in an yaml-file
+* `TARGETS` the path to your targets defined in an yaml-file
 
 Targets yaml-file
 -----------------
