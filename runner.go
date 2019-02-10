@@ -16,7 +16,7 @@ func (r *Runner) Run() {
 
 		then := time.Now()
 		response, err := request.Send()
-		requestLatency.Observe(float64(time.Since(then).Nanoseconds()) / 1000)
+		requestLatency.Observe(float64(time.Since(then).Nanoseconds()) * 1000000)
 
 		if err != nil {
 			RequestStatusCounter.WithLabelValues(request.GetName(), "error").Inc()

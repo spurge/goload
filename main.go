@@ -39,8 +39,8 @@ var (
 	RequestLatencySummary = prometheus.NewSummaryVec(
 		prometheus.SummaryOpts{
 			Name:       "goload_request_latency",
-			Help:       "Goload http request latency",
-			Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
+			Help:       "Goload http request latency in milliseconds",
+			Objectives: map[float64]float64{0.5: 0.05, 0.95: 0.005, 0.99: 0.001},
 		},
 		[]string{"name"},
 	)
@@ -113,6 +113,12 @@ func InitiateRequests(concurrency int, sleep time.Duration, filename string) {
 	ConcurrencyParamValue.Set(float64(concurrency))
 	SleepParamValue.Set(float64(sleep))
 	RequestParamLength.Set(float64(len(requests)))
+
+	for _, r := range requests {
+		for s := 1; s < 6; s++ {
+			RequestStatusCounter.WithLabelValues(r.GetName(), fmt.Sprintf("%dxx", s))
+		}
+	}
 
 	for i := 0; i < concurrency; i++ {
 		go RunRequests(requests, sleep)
