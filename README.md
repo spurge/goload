@@ -70,3 +70,12 @@ Targets yaml-file
   headers:
     Authentication: 'Bearer {{ fromJson "login" "user.auth.token" }}'
 ```
+
+Passing data between targets
+----------------------------
+
+As for now, there's only support for parsing and passing json-data. The targets yaml file is treated as a go-lang template, which means that you can access some functionality within double curly-brackets `{{ }}`.
+
+The json-data is fetched with the template function `fromJson`. It takes two arguments, the first is the name of the request/target and the second is the path to you data from the response body. The path is defined and parsed using the [gjson](https://github.com/tidwall/gjson)-library.
+
+See example above and the gjson documentation: https://github.com/tidwall/gjson
