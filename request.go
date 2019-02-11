@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io/ioutil"
 	"net/http"
+	"time"
 
 	"gopkg.in/yaml.v2"
 )
@@ -106,9 +107,11 @@ func (r *Request) SetParser(parser HistoryHandler) {
 }
 
 func (r *Request) Send() (Response, error) {
-	var response Response
+	var rec Response
 	var req *http.Request
 	var err error
+
+	requestLatency := RequestLatencySummary.WithLabelValues(r.Name)
 
 	if r.Body != "" {
 		req, err = http.NewRequest(
@@ -125,30 +128,37 @@ func (r *Request) Send() (Response, error) {
 	}
 
 	if err != nil {
-		return response, err
+		return rec, err
 	}
 
 	for key, value := range r.Headers {
 		req.Header.Set(r.Parser.Parse(key), r.Parser.Parse(value))
 	}
 
+	then := time.Now()
 	res, err := http.DefaultClient.Do(req)
 
 	if err != nil {
-		return response, err
+		RequestStatusCounter.WithLabelValues(r.Name, "error").Inc()
+		return rec, err
 	}
 
 	body, err := ioutil.ReadAll(res.Body)
 	defer res.Body.Close()
 
 	if err != nil {
-		return response, err
+		RequestStatusCounter.WithLabelValues(r.Name, "error").Inc()
+		return rec, err
 	}
 
-	response = Response{Body: string(body)}
-	response.SetStatusCode(res.StatusCode)
+	requestLatency.Observe(float64(time.Since(then).Nanoseconds()) / 1000000)
 
-	return response, nil
+	rec = Response{Body: string(body)}
+	rec.SetStatusCode(res.StatusCode)
+
+	RequestStatusCounter.WithLabelValues(r.Name, rec.StatusCode).Inc()
+
+	return rec, nil
 }
 
 type Response struct {

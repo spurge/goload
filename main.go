@@ -115,6 +115,8 @@ func InitiateRequests(concurrency int, sleep time.Duration, filename string) {
 	TargetsParamLength.Set(float64(len(requests)))
 
 	for _, r := range requests {
+		RequestStatusCounter.WithLabelValues(r.GetName(), "error")
+
 		for s := 1; s < 6; s++ {
 			RequestStatusCounter.WithLabelValues(r.GetName(), fmt.Sprintf("%dxx", s))
 		}
