@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"text/template"
+	"time"
 
 	"github.com/golang/glog"
 	"github.com/tidwall/gjson"
@@ -45,6 +46,9 @@ func (h *History) Parse(input string) string {
 				MissingTemplateEntryError.Inc()
 				glog.Errorf("Missing json template entry from %s with %s", name, path)
 				return ""
+			},
+			"now": func() time.Time {
+				return time.Now()
 			},
 		}).
 		Parse(input)
