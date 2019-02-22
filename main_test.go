@@ -14,9 +14,11 @@ func TestRequests(t *testing.T) {
 	content := []byte(`
 - name: request-1
   url: http://some-url-1
+  params:
+    param: value
   method: GET
 - name: request-2
-  url: 'http://some-url-2/{{ fromJson "request-1" "auth.path" }}'
+  url: 'http://some-url-2/{{ fromJson "request-1" "auth.path" }}?param=value'
   method: POST
   headers:
     Authorization: '{{ fromJson "request-1" "auth.token" }}'

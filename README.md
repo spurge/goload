@@ -58,6 +58,8 @@ Targets yaml-file
 ```yaml
 - name: login
   url: http://some-host/login
+  params:
+    some-query: parameter
   method: POST
   body: >
     {

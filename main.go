@@ -23,6 +23,7 @@ var (
 	ConcurrencyParamError     = ErrorCounter.WithLabelValues("concurrency_param")
 	SleepParamError           = ErrorCounter.WithLabelValues("sleep_param")
 	TargetsFileError          = ErrorCounter.WithLabelValues("targets_file")
+	ParseUrlError             = ErrorCounter.WithLabelValues("url_parse")
 	ParseTemplateError        = ErrorCounter.WithLabelValues("template_parse")
 	ExecuteTemplateError      = ErrorCounter.WithLabelValues("template_execute")
 	MissingTemplateEntryError = ErrorCounter.WithLabelValues("template_missing_entry")

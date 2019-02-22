@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"time"
 
 	"gopkg.in/yaml.v2"
@@ -76,6 +77,7 @@ var requestHandler RequestHandler = &Request{}
 type Request struct {
 	Name    string            `yaml:"name"`
 	URL     string            `yaml:"url"`
+	Params  map[string]string `yaml:"params"`
 	Method  string            `yaml:"method"`
 	Body    string            `yaml:"body"`
 	Headers map[string]string `yaml:"headers"`
@@ -87,7 +89,22 @@ func (r *Request) GetName() string {
 }
 
 func (r *Request) GetUrl() string {
-	return r.URL
+	url, err := url.Parse(r.Parser.Parse(r.URL))
+
+	if err != nil {
+		ParseUrlError.Inc()
+		return url.String()
+	}
+
+	query := url.Query()
+
+	for k, v := range r.Params {
+		query.Set(r.Parser.Parse(k), r.Parser.Parse(v))
+	}
+
+	url.RawQuery = query.Encode()
+
+	return url.String()
 }
 
 func (r *Request) GetMethod() string {
@@ -95,11 +112,21 @@ func (r *Request) GetMethod() string {
 }
 
 func (r *Request) GetHeader(key string) string {
-	return r.Headers[key]
+	return r.Parser.Parse(r.Headers[key])
+}
+
+func (r *Request) GetHeaders() map[string]string {
+	headers := make(map[string]string)
+
+	for k, _ := range r.Headers {
+		headers[r.Parser.Parse(k)] = r.GetHeader(k)
+	}
+
+	return headers
 }
 
 func (r *Request) GetBody() string {
-	return r.Body
+	return r.Parser.Parse(r.Body)
 }
 
 func (r *Request) SetParser(parser HistoryHandler) {
@@ -111,18 +138,18 @@ func (r *Request) Send() (Response, error) {
 	var req *http.Request
 	var err error
 
-	requestLatency := RequestLatencySummary.WithLabelValues(r.Name)
+	requestLatency := RequestLatencySummary.WithLabelValues(r.GetName())
 
 	if r.Body != "" {
 		req, err = http.NewRequest(
-			r.Method,
-			r.Parser.Parse(r.URL),
-			bytes.NewBuffer([]byte(r.Parser.Parse(r.GetBody()))),
+			r.GetMethod(),
+			r.GetUrl(),
+			bytes.NewBuffer([]byte(r.GetBody())),
 		)
 	} else {
 		req, err = http.NewRequest(
-			r.Method,
-			r.Parser.Parse(r.URL),
+			r.GetMethod(),
+			r.GetUrl(),
 			nil,
 		)
 	}
@@ -131,15 +158,15 @@ func (r *Request) Send() (Response, error) {
 		return rec, err
 	}
 
-	for key, value := range r.Headers {
-		req.Header.Set(r.Parser.Parse(key), r.Parser.Parse(value))
+	for k, v := range r.GetHeaders() {
+		req.Header.Set(k, v)
 	}
 
 	then := time.Now()
 	res, err := http.DefaultClient.Do(req)
 
 	if err != nil {
-		RequestStatusCounter.WithLabelValues(r.Name, "error").Inc()
+		RequestStatusCounter.WithLabelValues(r.GetName(), "error").Inc()
 		return rec, err
 	}
 
@@ -147,7 +174,7 @@ func (r *Request) Send() (Response, error) {
 	defer res.Body.Close()
 
 	if err != nil {
-		RequestStatusCounter.WithLabelValues(r.Name, "error").Inc()
+		RequestStatusCounter.WithLabelValues(r.GetName(), "error").Inc()
 		return rec, err
 	}
 
@@ -156,7 +183,7 @@ func (r *Request) Send() (Response, error) {
 	rec = Response{Body: string(body)}
 	rec.SetStatusCode(res.StatusCode)
 
-	RequestStatusCounter.WithLabelValues(r.Name, rec.StatusCode).Inc()
+	RequestStatusCounter.WithLabelValues(r.GetName(), rec.StatusCode).Inc()
 
 	return rec, nil
 }

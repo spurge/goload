@@ -26,6 +26,9 @@ func TestLoadingRequests(t *testing.T) {
 	content := []byte(`
 - name: An request
   url: weird url
+  params:
+    with: a
+    param: yes
   method: Hunk
   body: '{"hested":"Ok"}'
   headers:
@@ -53,18 +56,51 @@ func TestLoadingRequests(t *testing.T) {
 
 	r := requests[0]
 
+	r.SetParser(&FakeParser{})
+
 	if r.GetName() != "An request" ||
-		r.GetUrl() != "weird url" ||
+		r.GetUrl() != "weird%20url-faked?param-faked=yes-faked&with-faked=a-faked" ||
 		r.GetMethod() != "Hunk" ||
-		r.GetBody() != `{"hested":"Ok"}` ||
-		r.GetHeader("key-") != "valz" {
-		t.Errorf("Request does not match: %#v", r)
+		r.GetBody() != `{"hested":"Ok"}-faked` ||
+		r.GetHeader("key-") != "valz-faked" {
+		t.Error("Request does not match")
 	}
 
 	err = tmpfile.Close()
 
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestUrlEncoding(t *testing.T) {
+	r := Request{
+		URL: "https://some-host/a-path",
+		Params: map[string]string{
+			"a param": "&~/",
+			"^%@":     "?$#",
+		},
+	}
+
+	r.SetParser(&FakeParser{})
+
+	if r.GetUrl() != "https://some-host/a-path-faked?%5E%25%40-faked=%3F%24%23-faked&a+param-faked=%26~%2F-faked" {
+		t.Errorf("Request url was not encoded as wanted: %s", r.GetUrl())
+	}
+}
+
+func TestUrlWithParams(t *testing.T) {
+	r := Request{
+		URL: "https://some-home/a-path?some-other=param&ok=yes",
+		Params: map[string]string{
+			"another": "param",
+		},
+	}
+
+	r.SetParser(&FakeParser{})
+
+	if r.GetUrl() != "https://some-home/a-path?another-faked=param-faked&ok=yes-faked&some-other=param" {
+		t.Errorf("Request url was not encoded as wanted: %s", r.GetUrl())
 	}
 }
 
@@ -132,7 +168,7 @@ func TestPostWithHeaders(t *testing.T) {
 			body, err := ioutil.ReadAll(req.Body)
 			defer req.Body.Close()
 
-			if err != nil || string(body) != request.GetBody()+"-faked" {
+			if err != nil || string(body) != request.Body+"-faked" {
 				return httpmock.NewStringResponse(500, "Request body does not match"), nil
 			}
 
