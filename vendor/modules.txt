@@ -1,5 +1,7 @@
 # github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973
 github.com/beorn7/perks/quantile
+# github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
+github.com/golang/glog
 # github.com/golang/protobuf v1.2.0
 github.com/golang/protobuf/proto
 # github.com/matttproud/golang_protobuf_extensions v1.0.1

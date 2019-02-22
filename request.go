@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/golang/glog"
 	"gopkg.in/yaml.v2"
 )
 
@@ -162,11 +163,14 @@ func (r *Request) Send() (Response, error) {
 		req.Header.Set(k, v)
 	}
 
+	glog.Infof("Sending request to %s %s", req.Method, req.URL)
+
 	then := time.Now()
 	res, err := http.DefaultClient.Do(req)
 
 	if err != nil {
 		RequestStatusCounter.WithLabelValues(r.GetName(), "error").Inc()
+		glog.Errorf("Could not connect to %s %s: %s", req.Method, req.URL, err)
 		return rec, err
 	}
 
@@ -175,10 +179,17 @@ func (r *Request) Send() (Response, error) {
 
 	if err != nil {
 		RequestStatusCounter.WithLabelValues(r.GetName(), "error").Inc()
+		glog.Errorf("Could not read body from %s %s: %s", req.Method, req.URL, err)
 		return rec, err
 	}
 
 	requestLatency.Observe(float64(time.Since(then).Nanoseconds()) / 1000000)
+
+	glog.Infof("Got response %d from %s %s", res.StatusCode, req.Method, req.URL)
+
+	if res.StatusCode >= 400 {
+		glog.Warningf("Response body from %s: %s", req.URL, string(body))
+	}
 
 	rec = Response{Body: string(body)}
 	rec.SetStatusCode(res.StatusCode)

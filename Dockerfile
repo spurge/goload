@@ -13,11 +13,14 @@ RUN CGO_ENABLED=0 GOOS=linux go build
 FROM alpine
 
 COPY --from=builder /go/src/goload/goload /usr/bin/goload
+COPY entrypoint.sh /usr/sbin
+RUN chmod +x /usr/sbin/entrypoint.sh
 
-ENV HOST=0.0.0.0
-ENV PORT=8100
-ENV CONCURRENCY=1
-ENV SLEEP=1
-ENV TARGETS=
+ENV HOST 0.0.0.0
+ENV PORT 9115
+ENV LOG_LEVEL ERROR
+ENV CONCURRENCY 1
+ENV SLEEP 1
+ENV TARGETS ""
 
-ENTRYPOINT goload
+ENTRYPOINT ["entrypoint.sh"]

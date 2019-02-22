@@ -1,13 +1,12 @@
 package main
 
 import (
+	"flag"
 	"fmt"
-	"log"
 	"net/http"
-	"os"
-	"strconv"
 	"time"
 
+	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -20,8 +19,6 @@ var (
 		},
 		[]string{"error"},
 	)
-	ConcurrencyParamError     = ErrorCounter.WithLabelValues("concurrency_param")
-	SleepParamError           = ErrorCounter.WithLabelValues("sleep_param")
 	TargetsFileError          = ErrorCounter.WithLabelValues("targets_file")
 	ParseUrlError             = ErrorCounter.WithLabelValues("url_parse")
 	ParseTemplateError        = ErrorCounter.WithLabelValues("template_parse")
@@ -62,53 +59,34 @@ func init() {
 }
 
 func main() {
-	host := os.Getenv("HOST")
-	port := os.Getenv("PORT")
+	var host string
+	var port int
+	var concurrency int
+	var sleep int
+	var targets string
 
-	if host == "" {
-		host = "localhost"
-	}
+	flag.StringVar(&host, "host", "0.0.0.0", "Hostname")
+	flag.IntVar(&port, "port", 9115, "Port")
+	flag.IntVar(&concurrency, "concurrency", 1, "Concurrency")
+	flag.IntVar(&sleep, "sleep", 1, "Sleep")
+	flag.StringVar(&targets, "targets", "", "Targets path")
 
-	if port == "" {
-		port = "8100"
-	}
+	flag.Parse()
 
-	var err error
-	var concurrency int64
-	var sleep int64
-
-	concurrency, err = strconv.ParseInt(os.Getenv("CONCURRENCY"), 10, 16)
-
-	if err != nil {
-		concurrency = 1
-
-		ConcurrencyParamError.Inc()
-		log.Printf("CONCURRENCY environmental variable not set: %s", err)
-	}
-
-	sleep, err = strconv.ParseInt(os.Getenv("SLEEP"), 10, 16)
-
-	if err != nil {
-		sleep = 1
-
-		SleepParamError.Inc()
-		log.Printf("SLEEP environmental variable not set: %s", err)
-	}
-
-	filename := os.Getenv("TARGETS")
-
-	go InitiateRequests(int(concurrency), time.Duration(sleep), filename)
+	go InitiateRequests(concurrency, time.Duration(sleep), targets)
 
 	http.Handle("/metrics", promhttp.Handler())
-	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%s", host, port), nil))
+	glog.Infof("Listens on %s:%d", host, port)
+	glog.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", host, port), nil))
 }
 
 func InitiateRequests(concurrency int, sleep time.Duration, filename string) {
+	glog.Infof("Loading targets from %s", filename)
 	requests, err := LoadRequests(filename)
 
 	if err != nil {
 		TargetsFileError.Inc()
-		log.Printf("Error reading targets file: %s", err)
+		glog.Errorf("Error reading targets file, %s: %s", filename, err)
 	}
 
 	ConcurrencyParamValue.Set(float64(concurrency))
@@ -122,6 +100,8 @@ func InitiateRequests(concurrency int, sleep time.Duration, filename string) {
 			RequestStatusCounter.WithLabelValues(r.GetName(), fmt.Sprintf("%dxx", s))
 		}
 	}
+
+	glog.Infof("Starting %d request runners", concurrency)
 
 	for i := 0; i < concurrency; i++ {
 		go RunRequests(requests, sleep)
@@ -137,6 +117,7 @@ func RunRequests(requests []*Request, sleep time.Duration) {
 
 	for {
 		runner.Run()
+		glog.Infof("%d targets requested, sleeping for %d seconds until next cycle", len(requests), sleep)
 		time.Sleep(sleep * time.Second)
 	}
 }

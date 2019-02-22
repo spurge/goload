@@ -2,9 +2,9 @@ package main
 
 import (
 	"bytes"
-	"log"
 	"text/template"
 
+	"github.com/golang/glog"
 	"github.com/tidwall/gjson"
 )
 
@@ -43,6 +43,7 @@ func (h *History) Parse(input string) string {
 				}
 
 				MissingTemplateEntryError.Inc()
+				glog.Errorf("Missing json template entry from %s with %s", name, path)
 				return ""
 			},
 		}).
@@ -50,7 +51,7 @@ func (h *History) Parse(input string) string {
 
 	if err != nil {
 		ParseTemplateError.Inc()
-		log.Printf("Error parsing templated input: %s", err)
+		glog.Errorf("Error parsing templated input: %s", err)
 		return input
 	}
 
@@ -59,7 +60,7 @@ func (h *History) Parse(input string) string {
 
 	if err != nil {
 		ExecuteTemplateError.Inc()
-		log.Printf("Error executing template: %s", err)
+		glog.Errorf("Error executing template: %s", err)
 		return input
 	}
 
