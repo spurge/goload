@@ -18,11 +18,17 @@ How to run it
 
 Goload comes shipped with Alpine as a docker image at `spurge/goload`
 
+### As a binary
+
+```sh
+goload -host localhost -port 9115 -stderrthreshold ERROR -concurrency 1 -sleep 1 -target your-targets.yml
+```
+
 ### With docker
 
 ```sh
-docker run -d -v $PWD/targets.yml:/targets.yml -e TARGETS=/targets.yml -p 8100:8100 spurge/goload
-curl localhost:8100/metrics
+docker run -d -v $PWD/targets.yml:/targets.yml -e TARGETS=/targets.yml -p 9115:9115 spurge/goload
+curl localhost:9115/metrics
 ```
 
 ### Rolling your own docker image
@@ -32,7 +38,7 @@ FROM spurge/goload
 
 COPY targets.yml /app
 
-ENV TARGETS=/app/targets.yml
+ENV TARGETS /app/targets.yml
 ```
 
 and then ...
@@ -40,14 +46,15 @@ and then ...
 ```sh
 docker build -t goload-some-target .
 docker run -d goload-some-target
-curl localhost:8100/metrics
+curl localhost:9115/metrics
 ```
 
 Environment varables
 --------------------
 
 * `HOST` the host to listen on, default is `0.0.0.0`
-* `PORT` the port to listen on, default is `8100`
+* `PORT` the port to listen on, default is `9115` **(the same as Prometheus blackbox-exporter)*
+* `LOG_LEVEL` sets the verbosity by INFO, WARNING and ERROR
 * `CONCURRENCY` the number of concurrent workers, doing requests against your targets, default is `1`
 * `SLEEP` the time to sleep in seconds before running through your targets again, default is `1`
 * `TARGETS` the path to your targets defined in an yaml-file
