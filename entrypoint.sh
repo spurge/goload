@@ -22,6 +22,10 @@ while true; do
       SLEEP=$2
       shift 2
       ;;
+    -repeat)
+      REPEAT=$2
+      shift 2
+      ;;
     -targets)
       TARGETS=$2
       shift 2
@@ -38,4 +42,5 @@ exec goload \
   -stderrthreshold $LOG_LEVEL \
   -concurrency $CONCURRENCY \
   -sleep $SLEEP \
+  -repeat $REPEAT \
   -targets $TARGETS

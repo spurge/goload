@@ -126,7 +126,7 @@ func TestRequests(t *testing.T) {
 		},
 	)
 
-	go InitiateRequests(2, 1, tmpfile.Name())
+	go InitiateRequests(2, 1, -1, tmpfile.Name(), make(chan bool))
 	go func() {
 		time.Sleep(4 * time.Second)
 		t.Error("Timeout")
@@ -141,5 +141,44 @@ func TestRequests(t *testing.T) {
 		if jobs[1] >= 4 && jobs[2] >= 4 && jobs[3] >= 4 {
 			close(wait)
 		}
+	}
+}
+
+func TestLimitedRepeat(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+
+	called := 0
+	wait := make(chan bool)
+
+	httpmock.RegisterResponder(
+		"GET",
+		"http://some-url-1",
+		func(req *http.Request) (*http.Response, error) {
+			called += 1
+
+			return httpmock.NewStringResponse(200, ""), nil
+		},
+	)
+
+	requests := []*Request{
+		&Request{
+			URL:    "http://some-url-1",
+			Method: "GET",
+		},
+	}
+
+	go func() {
+		time.Sleep(4 * time.Second)
+		t.Error("Timeout")
+		close(wait)
+	}()
+
+	go RunRequests(requests, 0, 2, wait)
+
+	<-wait
+
+	if called != 3 {
+		t.Errorf("Repeated %d times instead of 3", called)
 	}
 }

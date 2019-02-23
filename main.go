@@ -34,6 +34,7 @@ var (
 	TargetsParamLength    = ParamGauge.WithLabelValues("targets_length")
 	ConcurrencyParamValue = ParamGauge.WithLabelValues("concurrency")
 	SleepParamValue       = ParamGauge.WithLabelValues("sleep")
+	RepeatParamValue      = ParamGauge.WithLabelValues("repeat")
 	RequestLatencySummary = prometheus.NewSummaryVec(
 		prometheus.SummaryOpts{
 			Name:       "goload_request_latency",
@@ -63,24 +64,39 @@ func main() {
 	var port int
 	var concurrency int
 	var sleep int
+	var repeat int
 	var targets string
 
 	flag.StringVar(&host, "host", "0.0.0.0", "Hostname")
 	flag.IntVar(&port, "port", 9115, "Port")
 	flag.IntVar(&concurrency, "concurrency", 1, "Concurrency")
 	flag.IntVar(&sleep, "sleep", 1, "Sleep")
+	flag.IntVar(&repeat, "repeat", -1, "Repeat, -1 <= infinite")
 	flag.StringVar(&targets, "targets", "", "Targets path")
 
 	flag.Parse()
 
-	go InitiateRequests(concurrency, time.Duration(sleep), targets)
+	closer := make(chan bool)
 
+	go InitiateRequests(concurrency, time.Duration(sleep), repeat, targets, closer)
+	go InitiateServer(host, port)
+
+	<-closer
+}
+
+func InitiateServer(host string, port int) {
 	http.Handle("/metrics", promhttp.Handler())
 	glog.Infof("Listens on %s:%d", host, port)
 	glog.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", host, port), nil))
 }
 
-func InitiateRequests(concurrency int, sleep time.Duration, filename string) {
+func InitiateRequests(
+	concurrency int,
+	sleep time.Duration,
+	repeat int,
+	filename string,
+	closer chan bool,
+) {
 	glog.Infof("Loading targets from %s", filename)
 	requests, err := LoadRequests(filename)
 
@@ -104,20 +120,35 @@ func InitiateRequests(concurrency int, sleep time.Duration, filename string) {
 	glog.Infof("Starting %d request runners", concurrency)
 
 	for i := 0; i < concurrency; i++ {
-		go RunRequests(requests, sleep)
+		go RunRequests(requests, sleep, repeat, closer)
 	}
 }
 
-func RunRequests(requests []*Request, sleep time.Duration) {
+func RunRequests(requests []*Request, sleep time.Duration, repeat int, closer chan bool) {
 	collection := RequestCollection{Requests: requests}
 	runner := Runner{
 		History:  NewHistory(),
 		Requests: &collection,
 	}
+	repeated := 0
 
 	for {
 		runner.Run()
-		glog.Infof("%d targets requested, sleeping for %d seconds until next cycle", len(requests), sleep)
+
+		glog.Infof(
+			"%d targets requested, sleeping for %d seconds until next cycle (%d/%d)",
+			len(requests),
+			sleep,
+			repeated,
+			repeat,
+		)
+
+		if repeat > -1 && repeated >= repeat {
+			closer <- true
+			break
+		}
+
+		repeated += 1
 		time.Sleep(sleep * time.Second)
 	}
 }
