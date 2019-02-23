@@ -21,6 +21,8 @@ Goload comes shipped with Alpine as a docker image at `spurge/goload`
 ### As a binary
 
 ```sh
+go get github.com/spurge/goload
+go install github.com/spurge/goload
 goload -host localhost -port 9115 -stderrthreshold ERROR -concurrency 1 -sleep 1 -target your-targets.yml
 ```
 
@@ -53,7 +55,7 @@ Environment varables
 --------------------
 
 * `HOST` the host to listen on, default is `0.0.0.0`
-* `PORT` the port to listen on, default is `9115` **(the same as Prometheus blackbox-exporter)*
+* `PORT` the port to listen on, default is `9115` *(the same as Prometheus blackbox-exporter)*
 * `LOG_LEVEL` sets the verbosity by INFO, WARNING and ERROR
 * `CONCURRENCY` the number of concurrent workers, doing requests against your targets, default is `1`
 * `SLEEP` the time to sleep in seconds before running through your targets again, default is `1`
