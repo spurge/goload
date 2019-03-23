@@ -76,6 +76,11 @@ Targets yaml-file
       "username": "yumba",
       "password": "secret"
     }
+  expect:
+    status_code_re: '2[0-9]{2}'
+    headers_re:
+      Content-Type: 'application/json'
+    body_re: '\{"user":\{"id":"[a-z0-9\-]+","name":"[a-z]+".*'
 - name: profile
   url: 'http://some-host/profile/{{ fromJson "login" "user.id" }}'
   method: GET

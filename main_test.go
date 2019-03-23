@@ -17,6 +17,11 @@ func TestRequests(t *testing.T) {
   params:
     param: value
   method: GET
+  expect:
+    status_code_re: '2..'
+    body_re: '"name":\s*"edud"'
+    headers_re:
+      Content-Length: '[0-9]+'
 - name: request-2
   url: 'http://some-url-2/{{ fromJson "request-1" "auth.path" }}?param=value'
   method: POST

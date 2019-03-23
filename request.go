@@ -82,6 +82,7 @@ type Request struct {
 	Method  string            `yaml:"method"`
 	Body    string            `yaml:"body"`
 	Headers map[string]string `yaml:"headers"`
+	Expect  Expected          `yaml:"expect"`
 	Parser  HistoryHandler
 }
 
@@ -174,7 +175,7 @@ func (r *Request) Send() (Response, error) {
 		return rec, err
 	}
 
-	body, err := ioutil.ReadAll(res.Body)
+	bodybytes, err := ioutil.ReadAll(res.Body)
 	defer res.Body.Close()
 
 	if err != nil {
@@ -187,11 +188,15 @@ func (r *Request) Send() (Response, error) {
 
 	glog.Infof("Got response %d from %s %s", res.StatusCode, req.Method, req.URL)
 
+	body := string(bodybytes)
+
 	if res.StatusCode >= 400 {
-		glog.Warningf("Response body from %s: %s", req.URL, string(body))
+		glog.Warningf("Response body from %s: %s", req.URL, body)
 	}
 
-	rec = Response{Body: string(body)}
+	r.Expect.Evaluate(r.GetName(), res, body)
+
+	rec = Response{Body: body}
 	rec.SetStatusCode(res.StatusCode)
 
 	RequestStatusCounter.WithLabelValues(r.GetName(), rec.StatusCode).Inc()

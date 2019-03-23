@@ -24,6 +24,7 @@ var (
 	ParseTemplateError        = ErrorCounter.WithLabelValues("template_parse")
 	ExecuteTemplateError      = ErrorCounter.WithLabelValues("template_execute")
 	MissingTemplateEntryError = ErrorCounter.WithLabelValues("template_missing_entry")
+	ExpectReCompileError      = ErrorCounter.WithLabelValues("expect_re_compile")
 	ParamGauge                = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "goload_params",
@@ -50,6 +51,13 @@ var (
 		},
 		[]string{"name", "status"},
 	)
+	ExpectedResponseCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "goload_expected_response",
+			Help: "Goload expected responses",
+		},
+		[]string{"name", "part"},
+	)
 )
 
 func init() {
@@ -57,6 +65,7 @@ func init() {
 	prometheus.MustRegister(ParamGauge)
 	prometheus.MustRegister(RequestLatencySummary)
 	prometheus.MustRegister(RequestStatusCounter)
+	prometheus.MustRegister(ExpectedResponseCounter)
 }
 
 func main() {
