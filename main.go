@@ -42,7 +42,7 @@ var (
 			Help:       "Goload http request latency in milliseconds",
 			Objectives: map[float64]float64{0.5: 0.05, 0.95: 0.005, 0.99: 0.001},
 		},
-		[]string{"name"},
+		[]string{"name", "status"},
 	)
 	RequestStatusCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
@@ -125,8 +125,9 @@ func InitiateRequests(
 	for _, r := range requests {
 		RequestStatusCounter.WithLabelValues(r.GetName(), "error")
 
-		for s := 1; s < 6; s++ {
-			RequestStatusCounter.WithLabelValues(r.GetName(), fmt.Sprintf("%dxx", s))
+		for _, status := range []string{"2xx", "4xx", "5xx"} {
+			RequestStatusCounter.WithLabelValues(r.GetName(), status)
+			RequestLatencySummary.WithLabelValues(r.GetName(), status)
 		}
 	}
 
