@@ -131,7 +131,8 @@ func TestRequests(t *testing.T) {
 		},
 	)
 
-	go InitiateRequests(2, 1, -1, tmpfile.Name(), make(chan bool))
+	status := NewStatus()
+	go InitiateRequests(2, 1, -1, tmpfile.Name(), status, make(chan bool))
 	go func() {
 		time.Sleep(4 * time.Second)
 		t.Error("Timeout")
@@ -160,7 +161,7 @@ func TestLimitedRepeat(t *testing.T) {
 		"GET",
 		"http://some-url-1",
 		func(req *http.Request) (*http.Response, error) {
-			called += 1
+			called++
 
 			return httpmock.NewStringResponse(200, ""), nil
 		},
@@ -179,7 +180,8 @@ func TestLimitedRepeat(t *testing.T) {
 		close(wait)
 	}()
 
-	go RunRequests(requests, 0, 2, wait)
+	status := NewStatus()
+	go RunRequests(requests, 0, 2, status, wait)
 
 	<-wait
 

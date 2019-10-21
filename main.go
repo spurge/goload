@@ -87,14 +87,17 @@ func main() {
 
 	closer := make(chan bool)
 
-	go InitiateRequests(concurrency, time.Duration(sleep), repeat, targets, closer)
-	go InitiateServer(host, port)
+	status := NewStatus()
+
+	go InitiateRequests(concurrency, time.Duration(sleep), repeat, targets, status, closer)
+	go InitiateServer(host, port, status)
 
 	<-closer
 }
 
-func InitiateServer(host string, port int) {
+func InitiateServer(host string, port int, status *Status) {
 	http.Handle("/metrics", promhttp.Handler())
+	http.Handle("/status", status.Handler())
 	glog.Infof("Listens on %s:%d", host, port)
 	glog.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", host, port), nil))
 }
@@ -104,6 +107,7 @@ func InitiateRequests(
 	sleep time.Duration,
 	repeat int,
 	filename string,
+	status *Status,
 	closer chan bool,
 ) {
 	glog.Infof("Loading targets from %s", filename)
@@ -129,15 +133,22 @@ func InitiateRequests(
 	glog.Infof("Starting %d request runners", concurrency)
 
 	for i := 0; i < concurrency; i++ {
-		go RunRequests(requests, sleep, repeat, closer)
+		go RunRequests(requests, sleep, repeat, status, closer)
 	}
 }
 
-func RunRequests(requests []*Request, sleep time.Duration, repeat int, closer chan bool) {
+func RunRequests(
+	requests []*Request,
+	sleep time.Duration,
+	repeat int,
+	status *Status,
+	closer chan bool,
+) {
 	collection := RequestCollection{Requests: requests}
 	runner := Runner{
 		History:  NewHistory(),
 		Requests: &collection,
+		Status:   status,
 	}
 	repeated := 0
 

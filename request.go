@@ -184,7 +184,8 @@ func (r *Request) Send() (Response, error) {
 		return rec, err
 	}
 
-	requestLatency.Observe(float64(time.Since(then).Nanoseconds()) / 1000000)
+	latency := float64(time.Since(then).Nanoseconds()) / 1000000
+	requestLatency.Observe(latency)
 
 	glog.Infof("Got response %d from %s %s", res.StatusCode, req.Method, req.URL)
 
@@ -196,7 +197,7 @@ func (r *Request) Send() (Response, error) {
 
 	r.Expect.Evaluate(r.GetName(), res, body)
 
-	rec = Response{Body: body}
+	rec = Response{Latency: latency, Body: body}
 	rec.SetStatusCode(res.StatusCode)
 
 	RequestStatusCounter.WithLabelValues(r.GetName(), rec.StatusCode).Inc()
@@ -205,11 +206,15 @@ func (r *Request) Send() (Response, error) {
 }
 
 type Response struct {
-	StatusCode string
-	Body       string
+	Latency        float64
+	StatusCode     string
+	RealStatusCode int
+	Body           string
 }
 
 func (r *Response) SetStatusCode(statusCode int) {
+	r.RealStatusCode = statusCode
+
 	if statusCode < 200 {
 		r.StatusCode = "1xx"
 		return

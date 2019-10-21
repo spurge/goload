@@ -95,6 +95,7 @@ func TestRun(t *testing.T) {
 	runner := Runner{
 		Requests: &requests,
 		History:  &history,
+		Status:   NewStatus(),
 	}
 
 	runner.Run()
