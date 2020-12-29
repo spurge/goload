@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"sync"
 )
@@ -41,6 +42,7 @@ func (s *Status) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	}
 
 	res.Header().Set("Content-Type", "application/json")
+	res.Header().Set("Content-Length", fmt.Sprintf("%d", len(data)))
 	res.Write(data)
 }
 

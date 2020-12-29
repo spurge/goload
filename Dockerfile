@@ -1,6 +1,6 @@
 # Building
 
-FROM golang:1.11 as builder
+FROM golang:1.15 as builder
 
 WORKDIR $GOPATH/src/goload
 COPY vendor/ $GOPATH/src/

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"testing"
+	"time"
 )
 
 type ResponseMock struct {
@@ -47,6 +48,12 @@ func TestRecordAndServe(t *testing.T) {
 	status.Record("another request", 12.3, 200, `{"ok":"yes?"}`, errors.New("an error"))
 	status.Record("another request", 12.3, 200, `{"ok":"yes?"}`, errors.New("some other error"))
 	status.Record("another request", 12.3, 200, `{"ok":"yes?"}`, errors.New("some error"))
+
+	time.Sleep(time.Millisecond * 100)
+
+	if len(status.Responses) > 0 {
+		t.Error("Record responses took too long, more than 100 ms")
+	}
 
 	status.ServeHTTP(&res, &http.Request{})
 
