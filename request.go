@@ -94,7 +94,7 @@ func (r *Request) GetUrl() string {
 	url, err := url.Parse(r.Parser.Parse(r.URL))
 
 	if err != nil {
-		ParseUrlError.Inc()
+		ParseURLError.Inc()
 		return url.String()
 	}
 
@@ -120,7 +120,7 @@ func (r *Request) GetHeader(key string) string {
 func (r *Request) GetHeaders() map[string]string {
 	headers := make(map[string]string)
 
-	for k, _ := range r.Headers {
+	for k := range r.Headers {
 		headers[r.Parser.Parse(k)] = r.GetHeader(k)
 	}
 
@@ -182,7 +182,7 @@ func (r *Request) Send() (Response, error) {
 		return rec, err
 	}
 
-	latency := float64(time.Since(then).Nanoseconds()) / 1000000
+	latency := time.Since(then).Seconds()
 
 	glog.Infof("Got response %d from %s %s", res.StatusCode, req.Method, req.URL)
 

@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/golang/glog"
@@ -14,47 +15,43 @@ import (
 var (
 	ErrorCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "goload_errors",
-			Help: "Goload error counter",
+			Name: "goload_errors_total",
+			Help: "Goload total number of errors",
 		},
 		[]string{"error"},
 	)
 	TargetsFileError          = ErrorCounter.WithLabelValues("targets_file")
-	ParseUrlError             = ErrorCounter.WithLabelValues("url_parse")
+	ParseURLError             = ErrorCounter.WithLabelValues("url_parse")
 	ParseTemplateError        = ErrorCounter.WithLabelValues("template_parse")
 	ExecuteTemplateError      = ErrorCounter.WithLabelValues("template_execute")
 	MissingTemplateEntryError = ErrorCounter.WithLabelValues("template_missing_entry")
 	ExpectReCompileError      = ErrorCounter.WithLabelValues("expect_re_compile")
-	ParamGauge                = prometheus.NewGaugeVec(
+	RuntimeGauge              = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "goload_params",
-			Help: "Goload parameters",
+			Name: "goload_runtime",
+			Help: "Goload runtime with parameters",
 		},
-		[]string{"param"},
+		[]string{"targets_length", "concurrency", "sleep", "repeat"},
 	)
-	TargetsParamLength    = ParamGauge.WithLabelValues("targets_length")
-	ConcurrencyParamValue = ParamGauge.WithLabelValues("concurrency")
-	SleepParamValue       = ParamGauge.WithLabelValues("sleep")
-	RepeatParamValue      = ParamGauge.WithLabelValues("repeat")
 	RequestLatencySummary = prometheus.NewSummaryVec(
 		prometheus.SummaryOpts{
-			Name:       "goload_request_latency",
-			Help:       "Goload http request latency in milliseconds",
+			Name:       "goload_request_latency_seconds",
+			Help:       "Goload http request latency in seconds",
 			Objectives: map[float64]float64{0.5: 0.05, 0.95: 0.005, 0.99: 0.001},
 		},
 		[]string{"name", "status"},
 	)
 	RequestStatusCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "goload_request_status",
-			Help: "Gload request status code",
+			Name: "goload_request_status_total",
+			Help: "Goload total requests by status code",
 		},
 		[]string{"name", "status"},
 	)
 	ExpectedResponseCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "goload_expected_response",
-			Help: "Goload expected responses",
+			Name: "goload_expected_response_total",
+			Help: "Goload total expected responses",
 		},
 		[]string{"name", "part"},
 	)
@@ -62,7 +59,7 @@ var (
 
 func init() {
 	prometheus.MustRegister(ErrorCounter)
-	prometheus.MustRegister(ParamGauge)
+	prometheus.MustRegister(RuntimeGauge)
 	prometheus.MustRegister(RequestLatencySummary)
 	prometheus.MustRegister(RequestStatusCounter)
 	prometheus.MustRegister(ExpectedResponseCounter)
@@ -118,9 +115,14 @@ func InitiateRequests(
 		glog.Errorf("Error reading targets file, %s: %s", filename, err)
 	}
 
-	ConcurrencyParamValue.Set(float64(concurrency))
-	SleepParamValue.Set(float64(sleep))
-	TargetsParamLength.Set(float64(len(requests)))
+	RuntimeGauge.
+		WithLabelValues(
+			strconv.Itoa(len(requests)),
+			strconv.Itoa(concurrency),
+			sleep.String(),
+			strconv.Itoa(repeat),
+		).
+		SetToCurrentTime()
 
 	for _, r := range requests {
 		RequestStatusCounter.WithLabelValues(r.GetName(), "error")
