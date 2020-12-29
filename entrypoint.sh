@@ -10,8 +10,12 @@ while true; do
       PORT=$2
       shift 2
       ;;
-    -stderrthreshold)
+    -loglevel)
       LOG_LEVEL=$2
+      shift 2
+      ;;
+    -logformat)
+      LOG_FORMAT=$2
       shift 2
       ;;
     -concurrency)
@@ -39,7 +43,8 @@ done
 exec goload \
   -host $HOST \
   -port $PORT \
-  -stderrthreshold $LOG_LEVEL \
+  -loglevel $LOG_LEVEL \
+  -logformat $LOG_FORMAT \
   -concurrency $CONCURRENCY \
   -sleep $SLEEP \
   -repeat $REPEAT \

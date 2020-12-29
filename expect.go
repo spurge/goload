@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"regexp"
 
-	"github.com/golang/glog"
+	"github.com/sirupsen/logrus"
 )
 
 type Expected struct {
@@ -83,7 +83,10 @@ func match(exp, target string) bool {
 
 	if err != nil {
 		ExpectReCompileError.Inc()
-		glog.Errorf("Could not compile regular expression for expected evaluation: %s", err)
+		logrus.
+			WithError(err).
+			WithField("regexp", exp).
+			Error("Could not compile regular expression for expected evaluation")
 		return false
 	}
 

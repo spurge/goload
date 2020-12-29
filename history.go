@@ -5,8 +5,8 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 )
 
@@ -45,7 +45,11 @@ func (h *History) Parse(input string) string {
 				}
 
 				MissingTemplateEntryError.Inc()
-				glog.Errorf("Missing json template entry from %s with %s", name, path)
+				logrus.
+					WithField("function", "fromJson").
+					WithField("entry", name).
+					WithField("path", path).
+					Error("Missing json template")
 				return ""
 			},
 			"uuid": func() uuid.UUID {
@@ -94,7 +98,9 @@ func (h *History) Parse(input string) string {
 
 	if err != nil {
 		ParseTemplateError.Inc()
-		glog.Errorf("Error parsing templated input: %s", err)
+		logrus.
+			WithError(err).
+			Error("Error parsing templated input")
 		return input
 	}
 
@@ -103,7 +109,9 @@ func (h *History) Parse(input string) string {
 
 	if err != nil {
 		ExecuteTemplateError.Inc()
-		glog.Errorf("Error executing template: %s", err)
+		logrus.
+			WithError(err).
+			Error("Error executing template")
 		return input
 	}
 

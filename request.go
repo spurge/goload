@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/golang/glog"
+	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 )
 
@@ -95,6 +95,10 @@ func (r *Request) GetUrl() string {
 
 	if err != nil {
 		ParseURLError.Inc()
+		logrus.
+			WithError(err).
+			WithField("url", url).
+			Error("Error parsing URL")
 		return url.String()
 	}
 
@@ -140,36 +144,53 @@ func (r *Request) Send() (Response, error) {
 	var req *http.Request
 	var err error
 
+	method := r.GetMethod()
+	url := r.GetUrl()
+
+	reqLogger := logrus.
+		WithField("method", method).
+		WithField("url", url)
+
 	if r.Body != "" {
+		payload := r.GetBody()
+		reqLogger = reqLogger.WithField("payload", payload)
+
 		req, err = http.NewRequest(
-			r.GetMethod(),
-			r.GetUrl(),
-			bytes.NewBuffer([]byte(r.GetBody())),
+			method,
+			url,
+			bytes.NewBuffer([]byte(payload)),
 		)
 	} else {
 		req, err = http.NewRequest(
-			r.GetMethod(),
-			r.GetUrl(),
+			method,
+			url,
 			nil,
 		)
 	}
 
 	if err != nil {
+		reqLogger.
+			WithError(err).
+			Error("Could not initiate request")
+
 		return rec, err
 	}
+
+	reqLogger.Info("Sending request")
 
 	for k, v := range r.GetHeaders() {
 		req.Header.Set(k, v)
 	}
-
-	glog.Infof("Sending request to %s %s", req.Method, req.URL)
 
 	then := time.Now()
 	res, err := http.DefaultClient.Do(req)
 
 	if err != nil {
 		RequestStatusCounter.WithLabelValues(r.GetName(), "error").Inc()
-		glog.Errorf("Could not connect to %s %s: %s", req.Method, req.URL, err)
+		reqLogger.
+			WithError(err).
+			Error("Failed doing request")
+
 		return rec, err
 	}
 
@@ -178,18 +199,26 @@ func (r *Request) Send() (Response, error) {
 
 	if err != nil {
 		RequestStatusCounter.WithLabelValues(r.GetName(), "error").Inc()
-		glog.Errorf("Could not read body from %s %s: %s", req.Method, req.URL, err)
+		reqLogger.
+			WithError(err).
+			Error("Could not read body")
+
 		return rec, err
 	}
 
 	latency := time.Since(then).Seconds()
 
-	glog.Infof("Got response %d from %s %s", res.StatusCode, req.Method, req.URL)
+	reqLogger.
+		WithField("statuscode", res.StatusCode).
+		Info("Request succeeded")
 
 	body := string(bodybytes)
 
 	if res.StatusCode >= 400 {
-		glog.Warningf("Response body from %s: %s", req.URL, body)
+		reqLogger.
+			WithField("statuscode", res.StatusCode).
+			WithField("response", body).
+			Warn("Got server error response")
 	}
 
 	r.Expect.Evaluate(r.GetName(), res, body)

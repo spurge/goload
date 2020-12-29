@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -63,6 +63,9 @@ func init() {
 	prometheus.MustRegister(RequestLatencySummary)
 	prometheus.MustRegister(RequestStatusCounter)
 	prometheus.MustRegister(ExpectedResponseCounter)
+
+	logrus.SetLevel(logrus.FatalLevel)
+	logrus.SetFormatter(&logrus.TextFormatter{})
 }
 
 func main() {
@@ -72,6 +75,8 @@ func main() {
 	var sleep int
 	var repeat int
 	var targets string
+	var logLevel string
+	var logFormat string
 
 	flag.StringVar(&host, "host", "0.0.0.0", "Hostname")
 	flag.IntVar(&port, "port", 9115, "Port")
@@ -79,8 +84,45 @@ func main() {
 	flag.IntVar(&sleep, "sleep", 1, "Sleep")
 	flag.IntVar(&repeat, "repeat", -1, "Repeat, -1 <= infinite")
 	flag.StringVar(&targets, "targets", "", "Targets path")
+	flag.StringVar(&logLevel, "loglevel", "warn", "Log level")
+	flag.StringVar(&logFormat, "logformat", "text", "Log format - text or json")
 
 	flag.Parse()
+
+	parsedLogLevel, err := logrus.ParseLevel(logLevel)
+
+	if err != nil {
+		logrus.
+			WithError(err).
+			WithField("loglevel", logLevel).
+			Fatalf("Could not parse log level %s", logLevel)
+	}
+
+	logrus.SetLevel(parsedLogLevel)
+
+	switch logFormat {
+	case "text":
+		logrus.SetFormatter(&logrus.TextFormatter{})
+		break
+	case "json":
+		logrus.SetFormatter(&logrus.JSONFormatter{})
+		break
+	default:
+		logrus.
+			WithField("logformat", logFormat).
+			Panicf("Unsupported log format %s", logFormat)
+	}
+
+	logrus.
+		WithField("host", host).
+		WithField("port", port).
+		WithField("concurrency", concurrency).
+		WithField("sleep", sleep).
+		WithField("repeat", repeat).
+		WithField("targets", targets).
+		WithField("loglevel", logLevel).
+		WithField("logformat", logFormat).
+		Debug("Started Goload")
 
 	closer := make(chan bool)
 
@@ -95,8 +137,13 @@ func main() {
 func InitiateServer(host string, port int, status *Status) {
 	http.Handle("/metrics", promhttp.Handler())
 	http.Handle("/status", status.Handler())
-	glog.Infof("Listens on %s:%d", host, port)
-	glog.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", host, port), nil))
+
+	httpLogger := logrus.
+		WithField("host", host).
+		WithField("port", port)
+
+	httpLogger.Info("Started HTTP server")
+	httpLogger.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", host, port), nil))
 }
 
 func InitiateRequests(
@@ -107,12 +154,21 @@ func InitiateRequests(
 	status *Status,
 	closer chan bool,
 ) {
-	glog.Infof("Loading targets from %s", filename)
+	reqLogger := logrus.
+		WithField("concurrency", concurrency).
+		WithField("sleep", sleep.String()).
+		WithField("repeat", repeat).
+		WithField("targets", filename)
+
+	reqLogger.Info("Started request loop")
+
 	requests, err := LoadRequests(filename)
 
 	if err != nil {
 		TargetsFileError.Inc()
-		glog.Errorf("Error reading targets file, %s: %s", filename, err)
+		reqLogger.
+			WithError(err).
+			Error("Error reading targets file")
 	}
 
 	RuntimeGauge.
@@ -132,8 +188,6 @@ func InitiateRequests(
 			RequestLatencySummary.WithLabelValues(r.GetName(), status)
 		}
 	}
-
-	glog.Infof("Starting %d request runners", concurrency)
 
 	for i := 0; i < concurrency; i++ {
 		go RunRequests(requests, sleep, repeat, status, closer)
@@ -155,23 +209,24 @@ func RunRequests(
 	}
 	repeated := 0
 
+	runLogger := logrus.
+		WithField("requests", len(requests)).
+		WithField("sleep", sleep.String()).
+		WithField("repeat", repeat).
+		WithField("repeated", repeated)
+
 	for {
+		runLogger.Info("Initiated requests")
 		runner.Run()
 
-		glog.Infof(
-			"%d targets requested, sleeping for %d seconds until next cycle (%d/%d)",
-			len(requests),
-			sleep,
-			repeated,
-			repeat,
-		)
-
 		if repeat > -1 && repeated >= repeat {
+			runLogger.Info("Number of repeats reached. Closing down.")
 			closer <- true
 			break
 		}
 
-		repeated += 1
+		repeated++
+		runLogger.Info("Requests ended. Sleeping intil next run.")
 		time.Sleep(sleep * time.Second)
 	}
 }
